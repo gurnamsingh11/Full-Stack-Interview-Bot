@@ -1,0 +1,24 @@
+body {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    background: #111;
+    color: #fff;
+    font-family: sans-serif;
+  }
+  
+  canvas {
+    border: 2px solid #fff;
+    border-radius: 8px;
+    margin: 10px;
+    max-width: 640px;
+    width: 90vw;
+    height: auto;
+  }
+  
+  #status {
+    font-size: 28px;
+    font-weight: bold;
+    margin-top: 15px;
+  }
+  

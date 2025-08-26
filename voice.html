@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>AI Interviewer — Voice UI</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 2rem; max-width: 900px; }
+    textarea { width: 100%; height: 80px; margin: 0.5rem 0; }
+    button { margin: 0.25rem; padding: 0.5rem 1rem; }
+    #transcripts { border: 1px solid #ccc; padding: 1rem; height: 240px; overflow-y: auto; margin-top: 1rem; background:#fafafa; }
+    .user { color: #1a73e8; }
+    .model { color: #0f9d58; }
+    .meta { color: #666; font-size: 0.9rem; }
+    .controls { margin-top: 1rem; }
+  </style>
+</head>
+<body>
+  <h1>AI Interviewer 🎤</h1>
+
+  <label><b>Job Description</b></label>
+  <textarea id="jd" placeholder="Enter job description...">Gen AI Engineer</textarea>
+
+  <label><b>Candidate Resume</b></label>
+  <textarea id="cr" placeholder="Enter candidate resume...">Name: Gurunam Lohia
+Designation: ML Engineer</textarea>
+
+  <div class="controls">
+    <button id="startBtn">Start Interview</button>
+    <button id="stopBtn" disabled>Stop Interview</button>
+    <button id="interruptBtn" disabled>Interrupt Playback</button>
+    <span class="meta" id="status">Disconnected</span>
+  </div>
+
+  <h3>Transcripts</h3>
+  <div id="transcripts"></div>
+
+  <script>
+    const startBtn = document.getElementById("startBtn");
+    const stopBtn = document.getElementById("stopBtn");
+    const interruptBtn = document.getElementById("interruptBtn");
+    const statusSpan = document.getElementById("status");
+    const transcriptsDiv = document.getElementById("transcripts");
+
+    let ws = null;
+    let audioContext = null;
+    let processor = null;
+    let inputStream = null;
+    let sourceNode = null;
+    let playhead = 0;
+    let scheduledSources = [];
+    let isRunning = false;
+
+    function appendTranscript(role, text) {
+      const p = document.createElement("p");
+      p.className = role;
+      p.textContent = `[${role}] ${text}`;
+      transcriptsDiv.appendChild(p);
+      transcriptsDiv.scrollTop = transcriptsDiv.scrollHeight;
+    }
+
+    function floatTo16BitPCM(float32Array) {
+      const buffer = new ArrayBuffer(float32Array.length * 2);
+      const view = new DataView(buffer);
+      let offset = 0;
+      for (let i = 0; i < float32Array.length; i++, offset += 2) {
+        let s = Math.max(-1, Math.min(1, float32Array[i]));
+        view.setInt16(offset, s < 0 ? s * 0x8000 : s * 0x7fff, true);
+      }
+      return buffer;
+    }
+
+    function encodePCMBase64(float32Array) {
+      const pcmBuffer = floatTo16BitPCM(float32Array);
+      let binary = "";
+      const bytes = new Uint8Array(pcmBuffer);
+      const chunkSize = 0x8000;
+      for (let i = 0; i < bytes.length; i += chunkSize) {
+        binary += String.fromCharCode.apply(null, bytes.subarray(i, i + chunkSize));
+      }
+      return btoa(binary);
+    }
+
+    function decodeBase64PCMToFloat32(b64) {
+      const binary = atob(b64);
+      const len = binary.length;
+      const samples = new Int16Array(len / 2);
+      for (let i = 0; i < len; i += 2) {
+        samples[i / 2] = binary.charCodeAt(i) | (binary.charCodeAt(i + 1) << 8);
+      }
+      const float32 = new Float32Array(samples.length);
+      for (let i = 0; i < samples.length; i++) {
+        float32[i] = samples[i] / 32768;
+      }
+      return float32;
+    }
+
+    function schedulePlayback(float32Array, sampleRate = 24000) {
+      if (!audioContext) return;
+      const now = audioContext.currentTime;
+      if (playhead < now) playhead = now + 0.05;
+
+      const buffer = audioContext.createBuffer(1, float32Array.length, sampleRate);
+      buffer.copyToChannel(float32Array, 0);
+
+      const src = audioContext.createBufferSource();
+      src.buffer = buffer;
+      src.connect(audioContext.destination);
+
+      src.onended = () => {
+        const idx = scheduledSources.indexOf(src);
+        if (idx !== -1) scheduledSources.splice(idx, 1);
+      };
+
+      src.start(playhead);
+      scheduledSources.push(src);
+      playhead += buffer.duration;
+    }
+
+    function interruptPlayback() {
+      for (const s of scheduledSources) {
+        try { s.onended = null; s.stop(); } catch (e) {}
+      }
+      scheduledSources = [];
+      if (audioContext) playhead = audioContext.currentTime + 0.02;
+      appendTranscript("meta", "Playback interrupted.");
+    }
+
+    async function startInterview() {
+      if (isRunning) return;
+      const jd = document.getElementById("jd").value;
+      const cr = document.getElementById("cr").value;
+
+      ws = new WebSocket("ws://13.43.78.177:8892/interview");
+
+      ws.onopen = () => {
+        statusSpan.textContent = "Connected to backend";
+        ws.send(JSON.stringify({ jd, cr }));
+        startBtn.disabled = true;
+        stopBtn.disabled = false;
+        interruptBtn.disabled = false;
+        isRunning = true;
+        appendTranscript("meta", "Session started.");
+      };
+
+      ws.onclose = () => stopInterview();
+      ws.onerror = (err) => appendTranscript("meta", "WebSocket error. See console.");
+
+      ws.onmessage = async (evt) => {
+        const msg = JSON.parse(evt.data);
+        if (msg.type === "transcript") {
+          appendTranscript(msg.role || "model", msg.text);
+        } else if (msg.type === "audio" && audioContext) {
+          try {
+            const float32 = decodeBase64PCMToFloat32(msg.data);
+            schedulePlayback(float32, 24000);
+          } catch (e) { console.error("Decode/playback error", e); }
+        }
+      };
+
+      audioContext = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 16000 });
+      try { inputStream = await navigator.mediaDevices.getUserMedia({ audio: true }); }
+      catch (e) { appendTranscript("meta", "Mic permission denied."); return; }
+
+      sourceNode = audioContext.createMediaStreamSource(inputStream);
+      processor = audioContext.createScriptProcessor(512, 1, 1);
+      sourceNode.connect(processor);
+
+      processor.onaudioprocess = (e) => {
+        const float32Array = e.inputBuffer.getChannelData(0);
+        if (ws && ws.readyState === WebSocket.OPEN) {
+          ws.send(JSON.stringify({ audio: encodePCMBase64(float32Array) }));
+        }
+      };
+
+      // mute processor output
+      const muteGain = audioContext.createGain();
+      muteGain.gain.value = 0;
+      processor.disconnect();
+      processor.connect(muteGain);
+      muteGain.connect(audioContext.destination);
+
+      statusSpan.textContent = "Microphone streaming (16k).";
+    }
+
+    async function stopInterview() {
+      if (ws && (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING)) {
+        ws.close();
+        await new Promise(r => setTimeout(r, 100));
+      }
+
+      try {
+        if (processor) { processor.disconnect(); processor.onaudioprocess = null; processor = null; }
+        if (sourceNode) { sourceNode.disconnect(); sourceNode = null; }
+        if (inputStream) { inputStream.getTracks().forEach(t => t.stop()); inputStream = null; }
+        if (audioContext) { await audioContext.close(); audioContext = null; }
+      } catch (e) { console.warn("Error stopping audio", e); }
+
+      interruptPlayback();
+      startBtn.disabled = false;
+      stopBtn.disabled = true;
+      interruptBtn.disabled = true;
+      statusSpan.textContent = "Stopped";
+      isRunning = false;
+      appendTranscript("meta", "Session stopped.");
+    }
+
+    startBtn.onclick = startInterview;
+    stopBtn.onclick = stopInterview;
+    interruptBtn.onclick = () => {
+      interruptPlayback();
+      if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ control: "interrupt" }));
+    };
+
+    window.addEventListener("beforeunload", stopInterview);
+  </script>
+</body>
+</html>
