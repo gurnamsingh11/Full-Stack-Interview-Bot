@@ -2,22 +2,672 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>Face Tracker</title>
+  <title>Face Tracker + AI Interviewer</title>
+  <style>
+    body {
+      margin: 0;
+      font-family: "Segoe UI", sans-serif;
+      background: #111;
+      color: #fff;
+      display: flex;
+      height: 100vh;
+      overflow: hidden;
+    }
 
-  <!-- External CSS -->
-  <link rel="stylesheet" href="css/style.css">
+    /* Side Navigation */
+    .sidenav {
+      height: 100%;
+      width: 0;
+      position: fixed;
+      top: 0;
+      left: 0;
+      background-color: #222;
+      overflow-x: hidden;
+      overflow-y: auto;
+      transition: 0.3s;
+      padding-top: 60px;
+      box-shadow: 2px 0 8px rgba(0,0,0,0.6);
+    }
+    .sidenav.open { width: 350px; }
+    .sidenav h2 {
+      color: #f1f1f1;
+      padding: 0 20px;
+    }
+    .sidenav label {
+      display: block;
+      padding: 10px 20px 5px;
+      font-weight: bold;
+    }
+    .sidenav textarea {
+      width: 85%;
+      margin: 0 20px 15px;
+      height: 80px;
+      border: none;
+      border-radius: 6px;
+      padding: 10px;
+      font-size: 14px;
+      resize: none;
+    }
+    .sidenav .closebtn {
+      position: absolute;
+      top: 15px;
+      right: 20px;
+      font-size: 28px;
+      cursor: pointer;
+      color: #bbb;
+    }
+
+    /* Upload Section Styles */
+    .upload-section {
+      margin: 0 20px 20px;
+    }
+
+    .upload-area {
+      border: 2px dashed #555;
+      border-radius: 8px;
+      padding: 20px;
+      text-align: center;
+      margin-bottom: 10px;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      background: #333;
+    }
+
+    .upload-area:hover {
+      border-color: #1a73e8;
+      background: #444;
+    }
+
+    .upload-area.dragover {
+      border-color: #1a73e8;
+      background: #444;
+      transform: scale(1.02);
+    }
+
+    .upload-icon {
+      font-size: 24px;
+      margin-bottom: 10px;
+      color: #888;
+    }
+
+    .upload-text {
+      color: #ccc;
+      font-size: 14px;
+      margin-bottom: 5px;
+    }
+
+    .file-types {
+      color: #888;
+      font-size: 12px;
+    }
+
+    #fileInput {
+      display: none;
+    }
+
+    .file-info {
+      background: #2a2a2a;
+      padding: 10px;
+      border-radius: 6px;
+      margin-bottom: 10px;
+      font-size: 13px;
+    }
+
+    .file-name {
+      color: #1a73e8;
+      font-weight: bold;
+    }
+
+    .file-size {
+      color: #888;
+      font-size: 11px;
+    }
+
+    .extract-status {
+      padding: 8px;
+      border-radius: 4px;
+      font-size: 12px;
+      text-align: center;
+      margin-bottom: 10px;
+    }
+
+    .extract-status.processing {
+      background: #ff9800;
+      color: #000;
+    }
+
+    .extract-status.success {
+      background: #4caf50;
+      color: #fff;
+    }
+
+    .extract-status.error {
+      background: #f44336;
+      color: #fff;
+    }
+
+    .resume-preview {
+      width: 85%;
+      margin: 0 20px 15px;
+      height: 120px;
+      border: 1px solid #555;
+      border-radius: 6px;
+      padding: 10px;
+      font-size: 13px;
+      resize: vertical;
+      background: #2a2a2a;
+      color: #ddd;
+    }
+
+    .clear-btn {
+      background: #f44336;
+      color: white;
+      border: none;
+      padding: 5px 10px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 12px;
+      margin-left: 20px;
+    }
+
+    .clear-btn:hover {
+      background: #d32f2f;
+    }
+
+    /* Main content */
+    .main {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: flex-start;
+      transition: margin-left .3s;
+      width: 100%;
+      text-align: center;
+      padding: 20px 0;
+      overflow-y: auto;
+    }
+
+    h1 {
+      margin: 20px 0;
+      font-size: 28px;
+      font-weight: 600;
+    }
+
+    canvas {
+      border: 2px solid #fff;
+      border-radius: 10px;
+      margin-bottom: 15px;
+      max-width: 640px;
+      width: 90%;
+      height: auto;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+    }
+
+    #status {
+      font-size: 24px;
+      font-weight: bold;
+      margin-bottom: 20px;
+    }
+
+    .controls button {
+      margin: 5px;
+      padding: 10px 20px;
+      border: none;
+      border-radius: 6px;
+      font-size: 15px;
+      cursor: pointer;
+      background: #1a73e8;
+      color: white;
+      transition: background 0.2s;
+    }
+    .controls button:disabled {
+      background: #555;
+      cursor: not-allowed;
+    }
+    .controls button:hover:not(:disabled) {
+      background: #0f5bd3;
+    }
+
+    .openbtn {
+      position: fixed;
+      top: 15px;
+      left: 15px;
+      font-size: 20px;
+      padding: 8px 15px;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      background: #444;
+      color: white;
+      z-index: 1000;
+    }
+  </style>
 
   <!-- MediaPipe libraries -->
   <script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh"></script>
   <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils"></script>
   <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils"></script>
+  
+  <!-- Document parsing libraries -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.4.2/mammoth.browser.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.min.js"></script>
+  <script>
+    // Set the worker source for PDF.js
+    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.worker.min.js';
+  </script>
 </head>
 <body>
-  <h1>Face Tracker</h1>
-  <canvas id="output" width="640" height="480"></canvas>
-  <div id="status">Loading...</div>
+  <!-- Side navigation -->
+  <div id="mySidenav" class="sidenav">
+    <span class="closebtn" onclick="closeNav()">&times;</span>
+    <h2>Interview Setup</h2>
+    
+    <label>Job Description</label>
+    <textarea id="jd">Gen AI Engineer</textarea>
+    
+    <label>Candidate Resume</label>
+    <div class="upload-section">
+      <div class="upload-area" id="uploadArea">
+        <div class="upload-icon">📄</div>
+        <div class="upload-text">Click to upload or drag & drop</div>
+        <div class="file-types">PDF, DOC, DOCX, TXT files</div>
+      </div>
+      <input type="file" id="fileInput" accept=".pdf,.doc,.docx,.txt" />
+      
+      <div id="fileInfo" class="file-info" style="display: none;">
+        <div class="file-name" id="fileName"></div>
+        <div class="file-size" id="fileSize"></div>
+      </div>
+      
+      <div id="extractStatus" class="extract-status" style="display: none;"></div>
+      
+      <button id="clearBtn" class="clear-btn" style="display: none;" onclick="clearFile()">Clear File</button>
+    </div>
+    
+    <textarea id="resumePreview" class="resume-preview" placeholder="Extracted text will appear here..." readonly></textarea>
+  </div>
 
-  <!-- App JS -->
-  <script src="js/app.js"></script>
+  <!-- Open sidenav button -->
+  <button class="openbtn" onclick="openNav()">☰ JD & CR</button>
+
+  <!-- Main content -->
+  <div class="main" id="main">
+    <h1>Face Tracker 🎥 + AI Interviewer 🎤</h1>
+    <canvas id="output" width="640" height="480"></canvas>
+    <div id="status">Loading...</div>
+
+    <div class="controls">
+      <button id="startBtn">Start Interview</button>
+      <button id="stopBtn" disabled>Stop Interview</button>
+      <span id="voiceStatus" style="margin-left:10px; font-size:14px; color:#aaa;">Disconnected</span>
+    </div>
+  </div>
+
+  <!-- Scripts -->
+  <script>
+    // Side nav controls
+    function openNav() {
+      document.getElementById("mySidenav").classList.add("open");
+    }
+    function closeNav() {
+      document.getElementById("mySidenav").classList.remove("open");
+    }
+  </script>
+
+  <!-- Document Upload and Processing -->
+  <script>
+    const uploadArea = document.getElementById('uploadArea');
+    const fileInput = document.getElementById('fileInput');
+    const fileInfo = document.getElementById('fileInfo');
+    const fileName = document.getElementById('fileName');
+    const fileSize = document.getElementById('fileSize');
+    const extractStatus = document.getElementById('extractStatus');
+    const resumePreview = document.getElementById('resumePreview');
+    const clearBtn = document.getElementById('clearBtn');
+
+    let currentFile = null;
+
+    // Upload area click handler
+    uploadArea.addEventListener('click', () => {
+      fileInput.click();
+    });
+
+    // Drag and drop handlers
+    uploadArea.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      uploadArea.classList.add('dragover');
+    });
+
+    uploadArea.addEventListener('dragleave', (e) => {
+      e.preventDefault();
+      uploadArea.classList.remove('dragover');
+    });
+
+    uploadArea.addEventListener('drop', (e) => {
+      e.preventDefault();
+      uploadArea.classList.remove('dragover');
+      const files = e.dataTransfer.files;
+      if (files.length > 0) {
+        handleFile(files[0]);
+      }
+    });
+
+    // File input change handler
+    fileInput.addEventListener('change', (e) => {
+      if (e.target.files.length > 0) {
+        handleFile(e.target.files[0]);
+      }
+    });
+
+    function handleFile(file) {
+      // Validate file type
+      const allowedTypes = ['application/pdf', 'application/msword', 
+                           'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 
+                           'text/plain'];
+      
+      if (!allowedTypes.includes(file.type)) {
+        showStatus('Unsupported file type. Please upload PDF, DOC, DOCX, or TXT files.', 'error');
+        return;
+      }
+
+      // Validate file size (10MB limit)
+      if (file.size > 10 * 1024 * 1024) {
+        showStatus('File too large. Please upload files smaller than 10MB.', 'error');
+        return;
+      }
+
+      currentFile = file;
+      showFileInfo(file);
+      extractText(file);
+    }
+
+    function showFileInfo(file) {
+      fileName.textContent = file.name;
+      fileSize.textContent = formatFileSize(file.size);
+      fileInfo.style.display = 'block';
+      clearBtn.style.display = 'inline-block';
+    }
+
+    function formatFileSize(bytes) {
+      if (bytes < 1024) return bytes + ' B';
+      if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+      return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+    }
+
+    function showStatus(message, type) {
+      extractStatus.textContent = message;
+      extractStatus.className = `extract-status ${type}`;
+      extractStatus.style.display = 'block';
+      
+      if (type === 'success' || type === 'error') {
+        setTimeout(() => {
+          extractStatus.style.display = 'none';
+        }, 3000);
+      }
+    }
+
+    async function extractText(file) {
+      showStatus('Processing document...', 'processing');
+      
+      try {
+        let extractedText = '';
+        
+        if (file.type === 'application/pdf') {
+          extractedText = await extractPdfText(file);
+        } else if (file.type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document') {
+          extractedText = await extractDocxText(file);
+        } else if (file.type === 'text/plain') {
+          extractedText = await extractPlainText(file);
+        } else {
+          throw new Error('Unsupported file type');
+        }
+
+        resumePreview.value = extractedText.trim();
+        showStatus('Document processed successfully!', 'success');
+        
+      } catch (error) {
+        console.error('Error extracting text:', error);
+        showStatus('Error processing document. Please try again.', 'error');
+      }
+    }
+
+    async function extractPdfText(file) {
+      const arrayBuffer = await file.arrayBuffer();
+      const pdf = await pdfjsLib.getDocument(arrayBuffer).promise;
+      let text = '';
+      
+      for (let i = 1; i <= pdf.numPages; i++) {
+        const page = await pdf.getPage(i);
+        const textContent = await page.getTextContent();
+        const pageText = textContent.items.map(item => item.str).join(' ');
+        text += pageText + '\n\n';
+      }
+      
+      return text;
+    }
+
+    async function extractDocxText(file) {
+      const arrayBuffer = await file.arrayBuffer();
+      const result = await mammoth.extractRawText({arrayBuffer});
+      return result.value;
+    }
+
+    async function extractPlainText(file) {
+      return await file.text();
+    }
+
+    function clearFile() {
+      currentFile = null;
+      fileInput.value = '';
+      fileInfo.style.display = 'none';
+      clearBtn.style.display = 'none';
+      extractStatus.style.display = 'none';
+      resumePreview.value = '';
+    }
+
+    // Function to get resume text (for the interview system)
+    function getResumeText() {
+      return resumePreview.value.trim() || 'No resume uploaded';
+    }
+  </script>
+
+  <!-- Face Tracker -->
+  <script>
+    const canvasElement = document.getElementById("output");
+    const canvasCtx = canvasElement.getContext("2d");
+    const statusElement = document.getElementById("status");
+    const videoElement = document.createElement("video");
+    videoElement.setAttribute("playsinline", "");
+    videoElement.setAttribute("muted", "");
+    videoElement.setAttribute("autoplay", "");
+
+    function calculateHeadPose(landmarks) {
+      const leftEye = landmarks[33], rightEye = landmarks[263], noseTip = landmarks[1];
+      const eyeDist = Math.hypot(rightEye.x - leftEye.x, rightEye.y - leftEye.y);
+      const noseOffsetX = noseTip.x - (leftEye.x + rightEye.x) / 2;
+      const yAngle = (noseOffsetX / eyeDist) * 60;
+      const noseToEyeVertical = noseTip.y - (leftEye.y + rightEye.y) / 2;
+      let xAngle = (noseToEyeVertical / eyeDist) * 40;
+      const avgEyeZ = (leftEye.z + rightEye.z) / 2;
+      const zOffset = noseTip.z - avgEyeZ;
+      xAngle += (zOffset * 40);
+      return [xAngle, yAngle];
+    }
+
+    function onResults(results) {
+      canvasCtx.save();
+      canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
+      canvasCtx.drawImage(results.image, 0, 0, canvasElement.width, canvasElement.height);
+
+      if (results.multiFaceLandmarks && results.multiFaceLandmarks.length > 0) {
+        const landmarks = results.multiFaceLandmarks[0];
+        const [xAngle, yAngle] = calculateHeadPose(landmarks);
+        if (xAngle > 26.5 && yAngle > -4) {
+          statusElement.innerText = "Not Looking Forward"; statusElement.style.color = "red";
+        } else if (xAngle > 24.5 && yAngle < 7) {
+          statusElement.innerText = "Not Looking Forward"; statusElement.style.color = "red";
+        } else if (yAngle < -15 || yAngle > 15 || xAngle < 15 || xAngle > 23) {
+          statusElement.innerText = "Not Looking Forward"; statusElement.style.color = "red";
+        } else {
+          statusElement.innerText = "Looking Forward"; statusElement.style.color = "lime";
+        }
+      }
+      canvasCtx.restore();
+    }
+
+    const faceMesh = new FaceMesh({ locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${file}` });
+    faceMesh.setOptions({ maxNumFaces: 1, refineLandmarks: true, minDetectionConfidence: 0.6, minTrackingConfidence: 0.6 });
+    faceMesh.onResults(onResults);
+
+    const camera = new Camera(videoElement, { onFrame: async () => { await faceMesh.send({ image: videoElement }); }, width: 640, height: 480 });
+    camera.start();
+  </script>
+
+  <!-- Voice Interviewer -->
+  <script>
+    const startBtn = document.getElementById("startBtn"),
+          stopBtn = document.getElementById("stopBtn"),
+          voiceStatus = document.getElementById("voiceStatus");
+    let ws = null, audioContext = null, processor = null, inputStream = null, sourceNode = null;
+    let playhead = 0, scheduledSources = [], isRunning = false;
+    let audioPermissionGranted = false;
+
+    // Request audio permission on page load
+    async function requestAudioPermission() {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        // Stop the stream immediately, we just needed permission
+        stream.getTracks().forEach(track => track.stop());
+        voiceStatus.textContent = "Audio ready";
+        audioPermissionGranted = true;
+        console.log("Audio permission granted");
+      } catch (error) {
+        voiceStatus.textContent = "Audio permission denied";
+        audioPermissionGranted = false;
+        console.error("Audio permission denied:", error);
+      }
+    }
+
+    // Request audio permission when page loads
+    window.addEventListener('load', () => {
+      // Small delay to ensure page is fully loaded
+      setTimeout(requestAudioPermission, 1000);
+    });
+
+    function floatTo16BitPCM(float32Array) {
+      const buffer = new ArrayBuffer(float32Array.length * 2);
+      const view = new DataView(buffer);
+      let offset = 0;
+      for (let i = 0; i < float32Array.length; i++, offset += 2) {
+        let s = Math.max(-1, Math.min(1, float32Array[i]));
+        view.setInt16(offset, s < 0 ? s * 0x8000 : s * 0x7fff, true);
+      }
+      return buffer;
+    }
+    function encodePCMBase64(float32Array) {
+      const pcmBuffer = floatTo16BitPCM(float32Array);
+      let binary = "";
+      const bytes = new Uint8Array(pcmBuffer);
+      for (let i = 0; i < bytes.length; i += 0x8000)
+        binary += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x8000));
+      return btoa(binary);
+    }
+    function decodeBase64PCMToFloat32(b64) {
+      const binary = atob(b64), len = binary.length;
+      const samples = new Int16Array(len / 2);
+      for (let i = 0; i < len; i += 2) samples[i/2] = binary.charCodeAt(i) | (binary.charCodeAt(i+1) << 8);
+      return Float32Array.from(samples, s => s/32768);
+    }
+    function schedulePlayback(float32Array, sampleRate = 24000) {
+      if (!audioContext) return;
+      const now = audioContext.currentTime;
+      if (playhead < now) playhead = now + 0.05;
+      const buffer = audioContext.createBuffer(1, float32Array.length, sampleRate);
+      buffer.copyToChannel(float32Array, 0);
+      const src = audioContext.createBufferSource(); src.buffer = buffer;
+      src.connect(audioContext.destination);
+      src.onended = () => { const idx = scheduledSources.indexOf(src); if (idx !== -1) scheduledSources.splice(idx, 1); };
+      src.start(playhead); scheduledSources.push(src); playhead += buffer.duration;
+    }
+    function interruptPlayback() {
+      for (const s of scheduledSources) { try { s.onended = null; s.stop(); } catch (e) {} }
+      scheduledSources = []; if (audioContext) playhead = audioContext.currentTime + 0.02;
+    }
+
+    async function startInterview() {
+      if (isRunning) return;
+      
+      // Check if audio permission was already granted
+      if (!audioPermissionGranted) {
+        voiceStatus.textContent = "Audio permission required";
+        return;
+      }
+      
+      const jd = document.getElementById("jd").value;
+      const cr = getResumeText(); // Use extracted text instead of textarea
+      
+      ws = new WebSocket("ws://13.43.78.177:8892/interview");
+      ws.onopen = () => { 
+        voiceStatus.textContent = "Connected"; 
+        ws.send(JSON.stringify({ jd, cr }));
+        startBtn.disabled = true; 
+        stopBtn.disabled = false; 
+        isRunning = true; 
+      };
+      ws.onclose = () => stopInterview();
+      ws.onmessage = (evt) => {
+        const msg = JSON.parse(evt.data);
+        if (msg.type === "audio" && audioContext) schedulePlayback(decodeBase64PCMToFloat32(msg.data), 24000);
+      };
+      
+      audioContext = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 16000 });
+      
+      try { 
+        // Reuse the audio permission we already have
+        inputStream = await navigator.mediaDevices.getUserMedia({ audio: true }); 
+      }
+      catch (e) { 
+        voiceStatus.textContent = "Mic access failed"; 
+        return; 
+      }
+      
+      sourceNode = audioContext.createMediaStreamSource(inputStream);
+      processor = audioContext.createScriptProcessor(512, 1, 1);
+      sourceNode.connect(processor);
+      processor.onaudioprocess = (e) => { const float32Array = e.inputBuffer.getChannelData(0);
+        if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ audio: encodePCMBase64(float32Array) })); };
+      const muteGain = audioContext.createGain(); muteGain.gain.value = 0;
+      processor.disconnect(); processor.connect(muteGain); muteGain.connect(audioContext.destination);
+      voiceStatus.textContent = "Streaming mic...";
+    }
+
+    async function stopInterview() {
+      if (ws && (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING)) { 
+        ws.close(); 
+        await new Promise(r => setTimeout(r, 100)); 
+      }
+      try {
+        if (processor) { processor.disconnect(); processor.onaudioprocess = null; processor = null; }
+        if (sourceNode) { sourceNode.disconnect(); sourceNode = null; }
+        if (inputStream) { inputStream.getTracks().forEach(t => t.stop()); inputStream = null; }
+        if (audioContext) { await audioContext.close(); audioContext = null; }
+      } catch {}
+      interruptPlayback(); 
+      startBtn.disabled = false; 
+      stopBtn.disabled = true;
+      voiceStatus.textContent = "Stopped"; 
+      isRunning = false;
+      
+      // Auto refresh the page after stopping interview
+      setTimeout(() => {
+        location.reload();
+      }, 1000);
+    }
+
+    startBtn.onclick = startInterview;
+    stopBtn.onclick = stopInterview;
+    window.addEventListener("beforeunload", stopInterview);
+  </script>
 </body>
 </html>
